@@ -1,0 +1,28 @@
+---
+variables:
+  ServiceOwner: www-data
+  RotateDays: 7
+  VHOST_ROOT: /opt/vhosts/hello-world
+steps:
+- cmd: dnf install -y nginx logrotate
+
+# get my ip address to set as the vhost domain
+- cmd: ip addr show $(ip route | awk '/default/ {print $5}') | awk '/inet / {print $2}' | awk -F/ '{print $1}'
+  setEnv: Domain
+
+# Create a virtual host via a template
+- template: /etc/nginx/sites-available/hello-world
+  remoteLocation: https://raw.githubusercontent.com/brucedom/example-setup/refs/heads/main/nginx/hello-world.vhost
+
+# Create a symlink for the virtual host
+- cmd: ln -sf /etc/nginx/sites-available/hello-world /etc/nginx/sites-enabled/hello-world
+
+# Clone the static HTML repo
+- gitRepo: https://github.com/brucedom/static-content-example.git
+  dest: VHOST_ROOT
+
+- template: /etc/logrotate.d/nginx
+  remoteLocation: https://raw.githubusercontent.com/brucedom/example-setup/refs/heads/main/nginx/logrotate.tpl
+
+# Enable and start the Nginx service
+- cmd: systemctl daemon-reload nginx && systemctl enable nginx && systemctl start nginx
